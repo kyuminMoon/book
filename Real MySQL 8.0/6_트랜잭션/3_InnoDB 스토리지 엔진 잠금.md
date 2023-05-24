@@ -39,12 +39,49 @@ INSERT, REPLACE 쿼리에선 걸리지만 UPDATE, DELETE 등의 쿼리에선 걸
 
 - innodb_autoinc_lock_mode=0
 위 설명과 동일
-- innodb_autoinc_lock_mode=1
+- innodb_autoinc_lock_mode=1 (5.7 default)
 단순 한 건 또는 여러 건의 레코드를 INSERT 하는 SQL 중 MySQL 서버가 INSERT 되는 레코드의 건수를 정확히 예측 가능한 때엔 자동 증가 락을 사용하지 않고, 훨씬 가볍고 빠른 래치(뮤텍스)를 이용해 처리.
 개선된 래치는 자동 증가 락과 달리 아주 짧은 시간 동안만 잠금을 걸고, 처리 후 해제.
 하지만, INSERT ... SELECT와 같이 건수를 (쿼리 실행 전) 예측할 수 없을 땐 0일때와 마찬가지로 자동 증가 락 사용.
   연속 모드(Consecutive mode)라고도 함.
-- innodb_autoinc_lock_mode=2
+- innodb_autoinc_lock_mode=2 (5.7 default)(8.0 default)
 자동 증가 락을 걸지 않고, 경량화된 래치(뮤텍스)를 사용.
 하지만 하나의 INSERT 문장으로 INSERT되는 레코드라 하더라도, 연속된 자동 증가 값을 보장하진 않는다. (Interleaved mode)
   INSERT ... SELECT와 같은 대량 INSERT가 실행되는 중에도 다른 커넥션에서 INSERT를 수행할 수 있으므로 동시 처리 성능이 높아지지만, 자동 증가 값이 유니크한 값이 생성된다는 것만 보장. STATEMENT 포맷의 바이너리 로그를 사용하는 복제에선 소스 서버와 레플리카 서버의 자동 증가 값이 달라질 수 있기 때문에 주의.
+
+## 인덱스와 잠금
+```SQL
+-- 예제 데이터베이스 employees 테이블에 first_name 컬럼만 멤버로 담긴 ix_firstname이라는 인덱스 존재.
+-- KEY ix_firstname (first_name)
+-- first_name = Georgi인 사원 253명 존재
+-- first_name = Georgi and last_name = Klassen인 사원 1명 존재.
+
+UPDATE employees SET hire_date = NOW() WHERE first_name='Georgi' AND last_name='Klassen';
+```
+이 경우 last_name 컬럼엔 인덱스가 없기 때문에 253개의 레코드를 모두 잠금.
+인덱스가 하나도 없으면? 테이블 내에 있는 모든 레코드를 잠금.
+
+![](.3_InnoDB 스토리지 엔진 잠금_images/6b1894f2.png)
+
+## 레코드 수준의 잠금 확인 및 해제
+![](.3_InnoDB 스토리지 엔진 잠금_images/f8bb9182.png)
+
+각 트랜잭션이 어떤 잠금을 기다리고 있는지, 기다리고 있는 잠금을 어떤 트랜잭션이 가지고 있는지 쉽게 메타 정보를 통해 조회가 가능.
+MySQL 8.0부턴 information_schema의 정보들은 조금씩 Deprecated 되고 있으며, 
+performance_schema의 data_locks, data_lock_waits 테이블로 대체되고 있다.
+![](.3_InnoDB 스토리지 엔진 잠금_images/642fd37f.png)
+17번 스레드는 아무것도 하지 않고 있지만, 트랜잭션을 시작하고 UPDATE 명령이 실행 완료된 것.
+하지만 COMMIT을 실행하지 않은 상태이므로 업데이트한 레코드 잠금은 그대로 가지고 있는 상태.
+
+18, 19번은 잠금으로 인해 대기중.
+
+![](.3_InnoDB 스토리지 엔진 잠금_images/df327819.png)
+
+하단 내용을 보면 employees 테이블에 대한 IX 잠금(Intentional Exclusive)를 가지고 있으며, 테이블의 특정 레코드에 대해서 쓰기 잠금을 가지고 있는 것을 확인 가능. 
+REC_NOT_GAP 표시가 있으므로 레코드 잠금은 갭이 포함되지 않은 순수 레코드에 대해서만 잠금을 가지고 있음을 알 수 있다.
+이런 경우 KILL 17; 을 입력하여 17번 스레드를 강제 종료 가능.
+
+![](.3_InnoDB 스토리지 엔진 잠금_images/02d08f94.png)
+![](.3_InnoDB 스토리지 엔진 잠금_images/c53380f1.png)
+
+
