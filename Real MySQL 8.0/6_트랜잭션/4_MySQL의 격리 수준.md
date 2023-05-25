@@ -9,3 +9,11 @@ SERIALIZABLE 또한 동시성이 중요한 DB에선 거의 사용되지 않는�
 DB 격리 수준을 얘기하면 항상 언급되는 세 가지 부정합의 문제점이 있다. 부정합의 문제는 격리 수준의 레벨에 따라 발생할 수도, 발생하지 않을 수도 있다.
 
 ![](.4_MySQL의 격리 수준_images/3d60ce21.png)
+
+SQL-92, SQL-99 표준에 따르면  REPEATABLE READ 격리 수준에선 PHANTOM READ가 발생할 수 있지만, InnoDB에선 독특한 특성 때문에 PHANTOM READ가 발생하지 않는다.
+일반적 서비스에선 READ COMMITTED와 REPEATABLE READ 중 하나를 사용.
+오라클의 경우 READ COMMITED 수준을 많이 사용, MySQL에선 REPEATABLE READ를 주로 사용.
+예제는 모두 AUTOCOMMIT OFF
+
+## READ UNCOMMITTED
+![](.4_MySQL의 격리 수준_images/45e07ea5.png)
