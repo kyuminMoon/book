@@ -2,6 +2,72 @@
 
 ## 사용하는 이유
 
+### Cold와 Hot의 의미
+
+Hot Swap : 컴퓨터 시스템의 전원이 켜져 있는 상태에서 디스크 등의 장치를 교체할 경우 시스템을 재시작하지 않고서도 바로 장치를 인식한다.
+
+Hot Deploy : 서버를 재시작하지 않고서 응용 프로그램의 변경 사항을 적용한다.
+
+Hot은 무언가 처음부터 다시 시작하지 않고, 같은 작업이 반복하지 않는 느낌이다. 이와 반대인 Cold는 처음부터 새로 시작해야하고, 새로 시작하기 때문에 같은 작업이 반복된다.
+리액티브 프로그래밍에서의 Cold, Hot의 의미를 위의 내용을 바탕으로 쉽게 이해해보자. 다시 쉽게 말하자면 'Cold'는 무언가를 새로 시작하고, 'Hot'은 무언가를 새로 시작하지 않는다.
+
+Sequence : Publisher가 emit하는 데이터의 연속적인 흐름을 정의해놓은 것이다. 코드로 표현하면 Operator 체인 형태로 정의된다.
+Cold Sequence : Subscriber가 구독할 때마다 데이터의 흐흠이 처음부터 시작되는 Sequence를 말한다.
+
+![](.2_웹플럭스_Reactor_images/91465a91.png)
+
+위에 있는 Subscriber A가 구독을 하면 Publisher는 4개(1, 3, 5, 7) 데이터를 emit한다.
+
+그리고 아래에 있는 Subscriber B가 구독을 해도 Publisher는 4개(1, 3, 5, 7) 데이터를 emit 한다.
+
+
+결론적으로 Subscriber A와 Subscriber B의 구독 시점이 다르지만 Subscriber A, B는 모두 동일한 데이터를 받게된다.
+
+즉, Cold Sequence란, 구독 시점이 달라도 구독을 할 때마다 Publisher가 데이터를 emit하는 과정을 처음부터 다시 시작하는 데이터의 흐름을 말한다.
+
+```Java 
+import lombok.extern.slf4j.Slf4j;
+import reactor.core.publisher.Flux;
+
+import java.util.Arrays;
+
+@Slf4j
+public class Example7_1 {
+public static void main(String[] args) throws InterruptedException {
+
+        Flux<String> coldFlux =
+                Flux
+                    .fromIterable(Arrays.asList("KOREA", "JAPAN", "CHINESE"))
+                    .map(String::toLowerCase);
+
+        coldFlux.subscribe(country -> log.info("# Subscriber1: {}", country));
+        System.out.println("----------------------------------------------------------------------");
+
+        Thread.sleep(2000L);
+
+        coldFlux.subscribe(country -> log.info("# Subscriber2: {}", country));
+    }
+}
+// 1) fromIterable() Operator를 사용하여 List로 전달받은 데이터 소스를 emit한다.
+// .fromIterable(Arrays.asList("KOREA", "JAPAN", "CHINESE"))
+```
+### 실행결과
+23:07:05.739 [main] INFO - # Subscriber1: korea
+23:07:05.740 [main] INFO - # Subscriber1: japan
+23:07:05.740 [main] INFO - # Subscriber1: chinese
+----------------------------------------------------------------------
+23:07:07.746 [main] INFO - # Subscriber2: korea
+23:07:07.749 [main] INFO - # Subscriber2: japan
+23:07:07.750 [main] INFO - # Subscriber2: chinese
+
+예상한대로, 구독이 발생할때마다 emit된 데이터(korea, japan, chinese)를 처음부터 다시 전달한다.
+
+Hot Sequence : Cold Sequence는 위의 설명으로 충분히 이해할 수 있을것이다. Hot Sequence는 Cold Sequence의 반대로 개념으로 이해하면 된다. Hot Sequence의 경우 구독이 발생한 시점 이전에 Publisher로부터 emit된 데이터는 Subscriber가 전달받지 못하고, 구독이 발생한 시점 이후에 emit된 데이터만 받을 수 있다.
+
+![](.2_웹플럭스_Reactor_images/98ca0735.png)
+
+https://devfunny.tistory.com/913
+
 ## 1. 용어 정리
 Publisher : 발행자, 게시자, 생산자, 방출자(Emitter)
 Subscriber : 구독자, 소비자
