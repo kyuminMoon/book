@@ -257,8 +257,7 @@ error -> log.error("# onError", error));
 
 ERROR 전략을 사용한다.
 
-.onBackpressureError()
-
+>.onBackpressureError()
 
 
 
@@ -266,7 +265,7 @@ ERROR 전략을 사용한다.
 
 Publisher가 emit한 데이터를 확인하거나 추가적인 동작을 정의하는 용도로 사용되는데, 주로 디버깅 용도로 사용할 수 있다.
 
-.doOnNext(data -> log.info("# doOnNext: {}", data))
+>.doOnNext(data -> log.info("# doOnNext: {}", data))
 .publishOn(Schedulers.parallel())
 
 
@@ -274,7 +273,7 @@ Publisher가 emit한 데이터를 확인하거나 추가적인 동작을 정의�
 
 Reactor Sequence 중 일부를 별도 스레드에서 실행할 수 있도록 해주는 Operator이다.
 
-.publishOn(Schedulers.parallel())
+>.publishOn(Schedulers.parallel())
 
 
 실행결과
@@ -308,7 +307,7 @@ OverflowException이 발생하면서 Sequence가 종료된다. 참고로 Overflo
 
 
 
-DROP 전략
+#### DROP 전략
 Publisher가 Downstream으로 전달할 데이터가 버퍼에 가득 찰 경우, 버퍼 밖에서 대기중인 데이터 중에서 먼저 emit된 데이터부터 Drop시키는 전략이다. Drop된 데이터는 폐기된다.
 
 ```Java
@@ -339,7 +338,7 @@ onBackpressureDrop()은 DROP된 데이터를 파라미터로 전달받을 수 �
 
 
 
-실행결과
+#### 실행결과
 ```log
 [parallel-1] INFO - # onNext: 0
 [parallel-1] INFO - # onNext: 1
@@ -365,7 +364,7 @@ onBackpressureDrop()은 DROP된 데이터를 파라미터로 전달받을 수 �
 
 
 
-LATEST 전략
+#### LATEST 전략
 Publisher가 Downstream으로 전달할 데이터가 버퍼에 가득 찰 경우, 버퍼 밖에서 대기 중인 데이터 중에서 가장 최근에(나중에) emit된 데이터부터 버퍼에 채우는 전략이다.
 
 
@@ -398,10 +397,10 @@ public class Example8_4 {
 
 1) LATEST 전략을 사용한다.
 
-.onBackpressureLatest()
+>.onBackpressureLatest()
 
 
-실행결과
+#### 실행결과
 ```log
 [parallel-1] INFO - # onNext: 0
 [parallel-1] INFO - # onNext: 1
@@ -429,7 +428,7 @@ Subscriber가 숫자 '255' 출력후 바로 '1286'을 출력하고있다. 이는
 
 
 
-BUFFER 전략
+#### BUFFER 전략
 컴퓨터 시스템에서의 버퍼
 
 입출력을 수행하는 장치들간의 속도 차이를 조절하기 위해 입출력 장치 중간에 위치해서 데이터를 어느정도 쌓아 두었다가 전송하는것
@@ -448,7 +447,7 @@ Backpressure BUFFER 전략도 이와 비슷하다. Backpressure BUFFER 전략은
 
 
 
-DROP_LATEST 전략
+#### DROP_LATEST 전략
 Publisher가 Downstream으로 전달할 데이터가 버퍼에 가득 찰 경우, 가장 최근에(나중에) 버퍼 안에 채워진 데이터를 Drop하여 폐끼한 후, 이렇게 확보된 공간에 emit된 데이터를 채우는 전략이다.
 
 ```Java
@@ -478,15 +477,16 @@ public class Example8_5 {
 
 1) onBackpressureBuffer()
 
-.onBackpressureBuffer(2,
+>.onBackpressureBuffer(2,
 dropped -> log.info("** Overflow & Dropped: {} **", dropped),
 BufferOverflowStrategy.DROP_LATEST)
+
 첫번째 파라미터 : 버퍼의 최대 용량을 2로 설정
 두번째 파라미터 : 버퍼 오버플로가 발생했을때, DROP되는 데이터를 전달받아 후처리 수행
 세번재 파라미터 : 적용할 Backpressure 전략 설정
 
 
-실행결과
+#### 실행결과
 ```log
 [main] DEBUG- Using Slf4j logging framework
 [parallel-2] INFO - # emitted by original Flux: 0
@@ -520,7 +520,7 @@ Subscriber가 숫자 1을 처리하는 1초의 시간동안 원본 Flux에서는
 
 
 
-DROP_OLDEST 전략
+#### DROP_OLDEST 전략
 Publisher가 Downstream으로 전달할 데이터가 버퍼에 가득 찰 경우, 버퍼 안에 채워진 데이터 중에서 가장 오래된 데이터를 Drop하여 폐기한 후, 확보된 공간에 emit된 데이터를 채우는 전략이다.
 
 ```Java
@@ -551,15 +551,16 @@ public class Example8_6 {
 
 1) onBackpressureBuffer()
 
-.onBackpressureBuffer(2,
+>.onBackpressureBuffer(2,
 dropped -> log.info("** Overflow & Dropped: {} **", dropped),
 BufferOverflowStrategy.DROP_OLDEST)
+
 첫번째 파라미터 : 버퍼의 최대 용량을 2로 설정
 두번째 파라미터 : 버퍼 오버플로가 발생했을때, DROP되는 데이터를 전달받아 후처리 수행
 세번재 파라미터 : 적용할 Backpressure 전략 설정
 
 
-실행결과
+#### 실행결과
 ```log
 [parallel-2] INFO - # emitted by original Flux: 0
 [parallel-2] INFO - [ # emitted by Buffer: 0 ]
@@ -579,7 +580,7 @@ BufferOverflowStrategy.DROP_OLDEST)
 [parallel-2] INFO - # emitted by original Flux: 7
 ```
 
-원본 Flux에서 숫자 0이 emit되고, 버퍼에 잠시 채워진 다음 버퍼에서 다시 emit된다.
+원본 Flux에서 숫자 0이 emit되고, 버퍼에 잠시 채워진 다음 버퍼에서 다시 emit된다.
 원본 Flux가 emit한 숫자 0을 Subscriber가 처리하기까지 1초 정도의 시간이 걸린다.
 Subscriber가 숫자 0을 처리하는 1초의 시간동안 원본 Flux에는 0.3초에 한번씩 숫자 1, 2를 emit한다. 버퍼의 최대 용량이 2이므로 이 시점에 버퍼에는 1,2가 채워진다.
 버퍼 : [2, 1]
