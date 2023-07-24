@@ -46,6 +46,493 @@ https://badcandy.github.io/2019/01/14/concurrency-01/
 
 동시성은 동시에 실행되는 것처럼 보이는 것
 
+Scheduler
+운영체제 레벨에서의 Scheduler는 실행되는 프로그램인 프로세스를 선택하고 실행하는 등 프로세스의 라이프 사이클을 관리해주는 관리자 역할을 한다.
+
+
+
+Reactor의 Scheduler는 비동기 프로그래밍을 위해 사용되는 스레드 관리해주는 역할을 한다. Scheduler를 사용하여 어떤 스레드에서 무엇을 처리할지 제어한다.  Scheduler를 사용하면 코드 자체가 매우 간결해지고, Scheduler가 스레드의 제어를 대신해 주기 때문에 개발자가 직접 스레드를 제어해야 하는 부담에서 벗어날 수 있다.
+
+
+
+
+
+Scheduler를 위한 전용 Operator
+Reactor에서 Scheduler는 Scheduler 전용 Operator를 통해 사용할 수 있다.
+
+
+
+
+
+subscribeOn()
+구독이 발생한 직후 실행될 스레드를 지정하는 Operator이다. 구독이 발생하면 원본 Publisher가 데이터를 최초로 emit하게 되는데, subscribeOn() Operator는 구독 시점 직후에 실행되기 때문에 원본 Publisher의 동작을 수행하기 위한 스레드라고 볼 수 있다.
+
+@Slf4j
+public class Example10_1 {
+public static void main(String[] args) throws InterruptedException {
+Flux.fromArray(new Integer[] {1, 3, 5, 7})
+.subscribeOn(Schedulers.boundedElastic())
+.doOnNext(data -> log.info("# doOnNext: {}", data))
+.doOnSubscribe(subscription -> log.info("# doOnSubscribe"))
+.subscribe(data -> log.info("# onNext: {}", data));
+
+        Thread.sleep(500L);
+    }
+}
+1) subscribeOn()
+
+구독이 발생한 직후에 원본 Publisher의 동작을 처리하기 위한 스레드를 할당한다.
+
+.subscribeOn(Schedulers.boundedElastic())
+
+
+2) doOneNext()
+
+원본 Flux에서 emit되는 데이터를 로그로 출력한다.
+
+.doOnNext(data -> log.info("# doOnNext: {}", data))
+
+
+3) doOnSubscribe()
+
+구독이 발생한 시점에 추가적인 어떤 처리가 필요할 경우 해당 처리 동작을 추가할 수 있는데, 구독이 발생한 시점에 실행되는 스레드가 무엇인지 확인한다.
+
+.doOnSubscribe(subscription -> log.info("# doOnSubscribe"))
+
+
+실행결과
+17:18:32.137 [main] INFO - # doOnSubscribe
+17:18:32.140 [boundedElastic-1] INFO - # doOnNext: 1
+17:18:32.141 [boundedElastic-1] INFO - # onNext: 1
+17:18:32.141 [boundedElastic-1] INFO - # doOnNext: 3
+17:18:32.141 [boundedElastic-1] INFO - # onNext: 3
+17:18:32.141 [boundedElastic-1] INFO - # doOnNext: 5
+17:18:32.141 [boundedElastic-1] INFO - # onNext: 5
+17:18:32.141 [boundedElastic-1] INFO - # doOnNext: 7
+17:18:32.141 [boundedElastic-1] INFO - # onNext: 7
+doOnSubscribe()에서의 동작은 main 스레드에서 동작한다. 이 예제 코드의 최초 실행 스레드가 main 스레드이기 때문이다. 그리고 그 이후 실행은 boundedElastic-1 스레드로 변경된다. 이는 subscribeOn()에서 Scheduler를 지정했기 때문에 구독이 발생한 직후부터는 원본 Flux의 동작을 처리하는 스레드가 바뀌게된다.
+
+
+
+
+
+publishOn()
+Downstream으로 Signal을 전송할 때 실행되는 스레드를 제어하는 역할을 하는 Operator이다. publishOn() 기준으로 아래쪽인 Downstream의 실행 스레드를 변경한다. 파라미터로 Scheduler를 지정함으로써 해당 Scheduler의 특성을 가진 스레드로 변경할 수 있다.
+
+@Slf4j
+public class Example10_2 {
+public static void main(String[] args) throws InterruptedException {
+Flux.fromArray(new Integer[] {1, 3, 5, 7})
+.doOnNext(data -> log.info("# doOnNext: {}", data))
+.doOnSubscribe(subscription -> log.info("# doOnSubscribe"))
+.publishOn(Schedulers.parallel())
+.subscribe(data -> log.info("# onNext: {}", data));
+
+        Thread.sleep(500L);
+    }
+}
+1) publishOn()
+
+Downstream으로 데이터를 emit하는 스레드를 변경한다.
+
+.publishOn(Schedulers.parallel())
+
+
+실행결과
+18:36:51.077 [main] INFO - # doOnSubscribe
+18:36:51.079 [main] INFO - # doOnNext: 1
+18:36:51.080 [main] INFO - # doOnNext: 3
+18:36:51.080 [parallel-1] INFO - # onNext: 1
+18:36:51.080 [main] INFO - # doOnNext: 5
+18:36:51.080 [main] INFO - # doOnNext: 7
+18:36:51.080 [parallel-1] INFO - # onNext: 3
+18:36:51.080 [parallel-1] INFO - # onNext: 5
+18:36:51.080 [parallel-1] INFO - # onNext: 7
+doOnSubscribe()는 main 스레드에서 실행된다.
+
+doOnNext()의 경우, subscribeOn() Operator를 사용하지 않았기 때문에 여전히 main 스레드에서 실행된다.
+
+onNext()의 경우, publishOn()이 추가되었기 때문에 Downstream의 실행 스레드가 변경되어 parallel-1 스레드에서 실행되었다.
+
+
+
+
+
+parallel()
+물리적인 스레드는 병렬성을 가지고, 논리적인 스레드는 동시성을 가진다고 했다. subscribeOn(), publishOn()의 경우 동시성을 가지는 논리적인 스레드에 해당되지만 parallel() Operator는 병렬성을 가지는 물리적인 스레드에 해당된다.
+
+
+
+prrallel()의 경우, 라운드 로빈(Round Robin) 방식으로 CPU 코어 개수만큼의 스레드를 병렬로 실행된다.
+
+4코어 8스레드의 CPU라면 총 8개의 스레드를 병렬로 실행하는 것이다.
+
+@Slf4j
+public class Example10_3 {
+public static void main(String[] args) throws InterruptedException {
+Flux.fromArray(new Integer[]{1, 3, 5, 7, 9, 11, 13, 15, 17, 19})
+.parallel(4)
+.runOn(Schedulers.parallel())
+.subscribe(data -> log.info("# onNext: {}", data));
+
+        Thread.sleep(100L);
+    }
+}
+1) parallel(), runOn()
+
+.parallel(4)
+.runOn(Schedulers.parallel())
+parallel() Operator는 emit되는 데이터를 CPU의 논리적인 코어(물리적인 스레드) 수에 맞게 골고루 분배하는 역할만 한다. 실제로 병렬 작업을 수행할 스레드의 할당은 runOn() Operator가 담당한다.
+
+
+
+실행결과
+18:52:16.392 [parallel-2] INFO - # onNext: 3
+18:52:16.389 [parallel-4] INFO - # onNext: 7
+18:52:16.392 [parallel-3] INFO - # onNext: 5
+18:52:16.396 [parallel-2] INFO - # onNext: 11
+18:52:16.397 [parallel-4] INFO - # onNext: 15
+18:52:16.397 [parallel-2] INFO - # onNext: 19
+18:52:16.389 [parallel-1] INFO - # onNext: 1
+18:52:16.397 [parallel-3] INFO - # onNext: 13
+18:52:16.397 [parallel-1] INFO - # onNext: 9
+18:52:16.397 [parallel-1] INFO - # onNext: 17
+실행결과, 총 4개의 스레드가 병렬로 실행되었다.
+
+
+
+
+
+parallel() 스레드 개수 지정
+작업을 처리하기 위해 물리적인 스레드를 전부 사용할 필요가 없는 경우, 스레드의 개수를 지정해주면 된다.
+
+@Slf4j
+public class Example10_4 {
+public static void main(String[] args) throws InterruptedException {
+Flux.fromArray(new Integer[]{1, 3, 5, 7, 9, 11, 13, 15, 17, 19})
+.parallel(2)
+.runOn(Schedulers.parallel())
+.subscribe(data -> log.info("# onNext: {}", data));
+
+        Thread.sleep(100L);
+    }
+}
+
+
+실행결과
+19:06:52.889 [parallel-1] INFO - # onNext: 1
+19:06:52.889 [parallel-2] INFO - # onNext: 3
+19:06:52.897 [parallel-1] INFO - # onNext: 5
+19:06:52.897 [parallel-2] INFO - # onNext: 7
+19:06:52.897 [parallel-2] INFO - # onNext: 11
+19:06:52.897 [parallel-1] INFO - # onNext: 9
+19:06:52.897 [parallel-2] INFO - # onNext: 15
+19:06:52.897 [parallel-1] INFO - # onNext: 13
+19:06:52.897 [parallel-2] INFO - # onNext: 19
+19:06:52.897 [parallel-1] INFO - # onNext: 17
+2개의 스레드를 지정했더니, 예제 코드에서 병렬 작업을 처리하기 위해 2개의 스레드를 지정했다.
+
+
+
+
+
+publishOn()과 subscribeOn()의 동작 이해
+원본 Publisher의 동작과 나머지 동작을 역할에 맞게 분리하고자 subscribeOn()과 publishOn() Operator를 함께 사용하는 경우도 있는데, 이 두개의 Operator을 함께 사용하면 실행 스레드는 어떻게 동작할까?
+
+
+
+Operator를 어떤 식으로 사용하느냐에 따라서 실행 스레드의 동작이 조금씩 달라질 수 있다.
+
+
+
+publishOn()과 subscribeOn()을 사용하지 않는 경우
+@Slf4j
+public class Example10_5 {
+public static void main(String[] args) {
+Flux
+.fromArray(new Integer[] {1, 3, 5, 7})
+.doOnNext(data -> log.info("# doOnNext fromArray: {}", data))
+.filter(data -> data > 3)
+.doOnNext(data -> log.info("# doOnNext filter: {}", data))
+.map(data -> data * 10)
+.doOnNext(data -> log.info("# doOnNext map: {}", data))
+.subscribe(data -> log.info("# onNext: {}", data));
+}
+}
+
+
+실행결과
+19:26:12.163 [main] INFO - # doOnNext fromArray: 1
+19:26:12.164 [main] INFO - # doOnNext fromArray: 3
+19:26:12.164 [main] INFO - # doOnNext fromArray: 5
+19:26:12.164 [main] INFO - # doOnNext filter: 5
+19:26:12.164 [main] INFO - # doOnNext map: 50
+19:26:12.164 [main] INFO - # onNext: 50
+19:26:12.164 [main] INFO - # doOnNext fromArray: 7
+19:26:12.164 [main] INFO - # doOnNext filter: 7
+19:26:12.164 [main] INFO - # doOnNext map: 70
+19:26:12.164 [main] INFO - # onNext: 70
+별도의 Scheduler를 추가하지 않았기 때문에 3개의 doOnNext() Operator가 모두 main 스레드에서 실행되었다.
+
+
+
+publishOn()만 사용하는 경우
+@Slf4j
+public class Example10_6 {
+public static void main(String[] args) throws InterruptedException {
+Flux
+.fromArray(new Integer[] {1, 3, 5, 7})
+.doOnNext(data -> log.info("# doOnNext fromArray: {}", data))
+.publishOn(Schedulers.parallel())
+.filter(data -> data > 3)
+.doOnNext(data -> log.info("# doOnNext filter: {}", data))
+.map(data -> data * 10)
+.doOnNext(data -> log.info("# doOnNext map: {}", data))
+.subscribe(data -> log.info("# onNext: {}", data));
+
+        Thread.sleep(500L);
+    }
+}
+
+
+실행코드
+19:30:14.946 [main] INFO - # doOnNext fromArray: 1
+19:30:14.949 [main] INFO - # doOnNext fromArray: 3
+19:30:14.949 [main] INFO - # doOnNext fromArray: 5
+19:30:14.949 [main] INFO - # doOnNext fromArray: 7
+19:30:14.949 [parallel-1] INFO - # doOnNext filter: 5
+19:30:14.949 [parallel-1] INFO - # doOnNext map: 50
+19:30:14.949 [parallel-1] INFO - # onNext: 50
+19:30:14.950 [parallel-1] INFO - # doOnNext filter: 7
+19:30:14.950 [parallel-1] INFO - # doOnNext map: 70
+19:30:14.950 [parallel-1] INFO - # onNext: 70
+publishOn() 이후에 추가된 Operator 체인인은 parallel-1 스레드에서 실행되었다.
+
+
+
+
+
+publishOn()를 2번 사용하는 경우
+publishOn()은 Operator 체인상에서 1개 이상을 사용할 수 있다.
+
+public class Example10_7 {
+public static void main(String[] args) throws InterruptedException {
+Flux
+.fromArray(new Integer[] {1, 3, 5, 7})
+.doOnNext(data -> log.info("# doOnNext fromArray: {}", data))
+.publishOn(Schedulers.parallel())
+.filter(data -> data > 3)
+.doOnNext(data -> log.info("# doOnNext filter: {}", data))
+.publishOn(Schedulers.parallel())
+.map(data -> data * 10)
+.doOnNext(data -> log.info("# doOnNext map: {}", data))
+.subscribe(data -> log.info("# onNext: {}", data));
+
+        Thread.sleep(500L);
+    }
+}
+
+
+실행결과
+19:34:36.052 [main] INFO - # doOnNext fromArray: 1
+19:34:36.053 [main] INFO - # doOnNext fromArray: 3
+19:34:36.053 [main] INFO - # doOnNext fromArray: 5
+19:34:36.053 [main] INFO - # doOnNext fromArray: 7
+19:34:36.053 [parallel-2] INFO - # doOnNext filter: 5
+19:34:36.054 [parallel-1] INFO - # doOnNext map: 50
+19:34:36.054 [parallel-2] INFO - # doOnNext filter: 7
+19:34:36.054 [parallel-1] INFO - # onNext: 50
+19:34:36.054 [parallel-1] INFO - # doOnNext map: 70
+19:34:36.054 [parallel-1] INFO - # onNext: 70
+첫번째 publishOn() 추가했을때 filter()부터는 'parallel-2' 스레드에서 실행되었다.
+
+두번째 publishOn() 추가했을때 map()부터는 'parallel-3' 스레드에서 실행되었다.
+
+
+
+publishOn()와 subscribeOn()을 함께 사용하는 경우
+subscribeOn() Operator는 구독이 발생한 직후에, 실행될 스레드를 지정하는 Operator이다.
+
+@Slf4j
+public class Example10_8 {
+public static void main(String[] args) throws InterruptedException {
+Flux
+.fromArray(new Integer[] {1, 3, 5, 7})
+.subscribeOn(Schedulers.boundedElastic())
+.doOnNext(data -> log.info("# doOnNext fromArray: {}", data))
+.filter(data -> data > 3)
+.doOnNext(data -> log.info("# doOnNext filter: {}", data))
+.publishOn(Schedulers.parallel())
+.map(data -> data * 10)
+.doOnNext(data -> log.info("# doOnNext map: {}", data))
+.subscribe(data -> log.info("# onNext: {}", data));
+
+        Thread.sleep(500L);
+    }
+}
+
+
+실행결과
+19:49:42.459 [main] DEBUG- Using Slf4j logging framework
+19:49:42.476 [boundedElastic-1] INFO - # doOnNext fromArray: 1
+19:49:42.483 [boundedElastic-1] INFO - # doOnNext fromArray: 3
+19:49:42.483 [boundedElastic-1] INFO - # doOnNext fromArray: 5
+19:49:42.483 [boundedElastic-1] INFO - # doOnNext filter: 5
+19:49:42.484 [boundedElastic-1] INFO - # doOnNext fromArray: 7
+19:49:42.484 [parallel-1] INFO - # doOnNext map: 50
+19:49:42.484 [boundedElastic-1] INFO - # doOnNext filter: 7
+19:49:42.484 [parallel-1] INFO - # onNext: 50
+19:49:42.484 [parallel-1] INFO - # doOnNext map: 70
+19:49:42.484 [parallel-1] INFO - # onNext: 70
+publishOn() 이전까지의 Operator의 체인은 subscribeOn()에서 지정한 'boundedElastic-1' 스레드에서 실행되고, publishOn() 이후의 Operator 체인은 'parallel-1' 스레드에서 실행된다.
+
+subscribeOn() Operator와 publishOn() Operator를 함께 사용하면 원본 Publisher에서 데이터를 emit하는 스레드와 emit된 데이터를 가공 처리하는 스레드를 적절하게 분리할 수 있다.
+
+
+
+
+
+
+
+Shceduler의 종류
+1) Schedulers.immediate()
+   Schedulers.immediate()은 별도의 스레드를 추가적으로 생성하지 않고, 현재 스레드에서 작업을 처리하고자 할 때 사용할 수 있다.
+
+@Slf4j
+public class Example10_9 {
+public static void main(String[] args) throws InterruptedException {
+Flux
+.fromArray(new Integer[] {1, 3, 5, 7})
+.publishOn(Schedulers.parallel())
+.filter(data -> data > 3)
+.doOnNext(data -> log.info("# doOnNext filter: {}", data))
+.publishOn(Schedulers.immediate())
+.map(data -> data * 10)
+.doOnNext(data -> log.info("# doOnNext map: {}", data))
+.subscribe(data -> log.info("# onNext: {}", data));
+
+        Thread.sleep(200L);
+    }
+}
+
+
+실행결과
+19:55:59.035 [parallel-1] INFO - # doOnNext filter: 5
+19:55:59.036 [parallel-1] INFO - # doOnNext map: 50
+19:55:59.036 [parallel-1] INFO - # onNext: 50
+19:55:59.036 [parallel-1] INFO - # doOnNext filter: 7
+19:55:59.037 [parallel-1] INFO - # doOnNext map: 70
+19:55:59.037 [parallel-1] INFO - # onNext: 70
+추가 스레드를 생성하지 않고, 현재 스레드를 그대로 사용해서 작업을 처리한다고 했는데, publishOn()이 1번 사용됬기 때문에 'parallel-1' 스레드가 현재 스레드가 된다.
+
+
+
+
+
+2) Schedulers.single()
+   스레드 하나만 생성해서 Scheduler가 제거되기 전까지 재사용하는 방식이다.
+
+@Slf4j
+public class Example10_10 {
+public static void main(String[] args) throws InterruptedException {
+doTask("task1")
+.subscribe(data -> log.info("# onNext: {}", data));
+
+        doTask("task2")
+                .subscribe(data -> log.info("# onNext: {}", data));
+
+        Thread.sleep(200L);
+    }
+
+    private static Flux<Integer> doTask(String taskName) {
+        return Flux.fromArray(new Integer[] {1, 3, 5, 7})
+                .publishOn(Schedulers.single())
+                .filter(data -> data > 3)
+                .doOnNext(data -> log.info("# {} doOnNext filter: {}", taskName, data))
+                .map(data -> data * 10)
+                .doOnNext(data -> log.info("# {} doOnNext map: {}", taskName, data));
+    }
+}
+
+
+실행결과
+19:57:49.260 [single-1] INFO - # task1 doOnNext filter: 5
+19:57:49.263 [single-1] INFO - # task1 doOnNext map: 50
+19:57:49.264 [single-1] INFO - # onNext: 50
+19:57:49.264 [single-1] INFO - # task1 doOnNext filter: 7
+19:57:49.264 [single-1] INFO - # task1 doOnNext map: 70
+19:57:49.264 [single-1] INFO - # onNext: 70
+19:57:49.265 [single-1] INFO - # task2 doOnNext filter: 5
+19:57:49.265 [single-1] INFO - # task2 doOnNext map: 50
+19:57:49.265 [single-1] INFO - # onNext: 50
+19:57:49.265 [single-1] INFO - # task2 doOnNext filter: 7
+19:57:49.265 [single-1] INFO - # task2 doOnNext map: 70
+19:57:49.265 [single-1] INFO - # onNext: 70
+doTask()를 두번 호출하더라도 첫번째 호출에서 이미 생성된 스레드를 재사용한다. 'single-1'이라는 하나의 스레드에서 처리되었다.
+
+
+
+
+
+3) Schedulers.newSingle()
+   호출할때마다 매번 새로운 스레드 하나를 생성한다.
+
+@Slf4j
+public class Example10_11 {
+public static void main(String[] args) throws InterruptedException {
+doTask("task1")
+.subscribe(data -> log.info("# onNext: {}", data));
+
+        doTask("task2")
+                .subscribe(data -> log.info("# onNext: {}", data));
+
+        Thread.sleep(200L);
+    }
+
+    private static Flux<Integer> doTask(String taskName) {
+        return Flux.fromArray(new Integer[] {1, 3, 5, 7})
+                .publishOn(Schedulers.newSingle("new-single", true))
+                .filter(data -> data > 3)
+                .doOnNext(data -> log.info("# {} doOnNext filter: {}", taskName, data))
+                .map(data -> data * 10)
+                .doOnNext(data -> log.info("# {} doOnNext map: {}", taskName, data));
+    }
+}
+1) newSingle(생성할 스레드의 이름, 데몬스레드 동작 여부)
+
+.publishOn(Schedulers.newSingle("new-single", true))
+
+
+실행결과
+19:59:23.266 [new-single-2] INFO - # task2 doOnNext filter: 5
+19:59:23.265 [new-single-1] INFO - # task1 doOnNext filter: 5
+19:59:23.269 [new-single-2] INFO - # task2 doOnNext map: 50
+19:59:23.269 [new-single-1] INFO - # task1 doOnNext map: 50
+19:59:23.269 [new-single-2] INFO - # onNext: 50
+19:59:23.269 [new-single-1] INFO - # onNext: 50
+19:59:23.269 [new-single-2] INFO - # task2 doOnNext filter: 7
+19:59:23.269 [new-single-1] INFO - # task1 doOnNext filter: 7
+19:59:23.269 [new-single-2] INFO - # task2 doOnNext map: 70
+19:59:23.269 [new-single-1] INFO - # task1 doOnNext map: 70
+19:59:23.269 [new-single-2] INFO - # onNext: 70
+19:59:23.269 [new-single-1] INFO - # onNext: 70
+doTask()를 호출할때마다 새로운 스레드 하나를 생성해서 각각의 작업을 처리하는 것을 볼 수 있다.
+
+
+
+4) 그외 여러가지
+   종류	설명
+   Schedulers.boundedElastic()	1) ExecutorService 기반의 스레드 풀을 생성한 후, 그 안에서 정해진 수만큼의 스레드를 사용하여 작업을 처리하고 작업이 종료된 스레드는 반납하여 재사용한다.
+2) 기본적으로 CPI 코어 수 x 10 만큼의 스레드를 생성한다.
+3) Blocking I/O 작업을 효과적으로 처라히가 위한 방식이다.
+- 실행시간이 긴 Blocking I/O 작업이 포함된 경우, 다른 Non-Blocking 처리에 영향을 주지 않도록 전용 스레드를 할당해서 Blocking I/O 작업을 처리하기 때문에 처리 시간을 효율적으로 사용할 수 있다.
+  Schedulers.parallel()	1) Non-Blocking I.O에 최적화되어 있는 Scheduler로서 CPU 코어 수만큼의 스레드를 생성한다.
+  Schedulers.fromExecutorService()	1) 기존에 이미 사용하고 있는 ExecutorService가 있다면 이 ExecutorService로부터 Scheduler를 생성하는 방식이다.
+  Schedulers.newXXX()	1) single(), boundedElastic(), parallel()은 Reactor에서 제공하는 디폴트 Scheduler 인스턴스를 사용하는데, 필요하다면 newSingle(), newBoundedElastic(), newParallel() 메서드를 이용해서 새로운 Scheduler 인스턴스를 생성할 수 있다.
+
+
+https://devfunny.tistory.com/915
+
 
 
 ### Cold와 Hot의 의미
