@@ -214,7 +214,7 @@ parallel() Operator는 emit되는 데이터를 CPU의 논리적인 코어(물리
 
 
 
-parallel() 스레드 개수 지정
+### parallel() 스레드 개수 지정
 작업을 처리하기 위해 물리적인 스레드를 전부 사용할 필요가 없는 경우, 스레드의 개수를 지정해주면 된다.
 ```Java
 @Slf4j
@@ -249,7 +249,7 @@ Flux.fromArray(new Integer[]{1, 3, 5, 7, 9, 11, 13, 15, 17, 19})
 
 
 
-publishOn()과 subscribeOn()의 동작 이해
+### publishOn()과 subscribeOn()의 동작 이해
 원본 Publisher의 동작과 나머지 동작을 역할에 맞게 분리하고자 subscribeOn()과 publishOn() Operator를 함께 사용하는 경우도 있는데, 이 두개의 Operator을 함께 사용하면 실행 스레드는 어떻게 동작할까?
 
 
