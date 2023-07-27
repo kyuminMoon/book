@@ -551,15 +551,21 @@ doTask()를 호출할때마다 새로운 스레드 하나를 생성해서 각각
 
 
 
-4) 그외 여러가지
-   종류	설명
-   Schedulers.boundedElastic()	1) ExecutorService 기반의 스레드 풀을 생성한 후, 그 안에서 정해진 수만큼의 스레드를 사용하여 작업을 처리하고 작업이 종료된 스레드는 반납하여 재사용한다.
-2) 기본적으로 CPI 코어 수 x 10 만큼의 스레드를 생성한다.
-3) Blocking I/O 작업을 효과적으로 처라히가 위한 방식이다.
-- 실행시간이 긴 Blocking I/O 작업이 포함된 경우, 다른 Non-Blocking 처리에 영향을 주지 않도록 전용 스레드를 할당해서 Blocking I/O 작업을 처리하기 때문에 처리 시간을 효율적으로 사용할 수 있다.
-  Schedulers.parallel()	1) Non-Blocking I.O에 최적화되어 있는 Scheduler로서 CPU 코어 수만큼의 스레드를 생성한다.
-  Schedulers.fromExecutorService()	1) 기존에 이미 사용하고 있는 ExecutorService가 있다면 이 ExecutorService로부터 Scheduler를 생성하는 방식이다.
-  Schedulers.newXXX()	1) single(), boundedElastic(), parallel()은 Reactor에서 제공하는 디폴트 Scheduler 인스턴스를 사용하는데, 필요하다면 newSingle(), newBoundedElastic(), newParallel() 메서드를 이용해서 새로운 Scheduler 인스턴스를 생성할 수 있다.
+### 그외 여러가지
+ |  종류 |	설명 |
+------------------
+|   Schedulers.boundedElastic()	| 1) ExecutorService 기반의 스레드 풀을 생성한 후, 그 안에서 정해진 수만큼의 스레드를 사용하여 작업을 처리하고 작업이 종료된 스레드는 반납하여 재사용한다. |
+|                               | 2) 기본적으로 CPI 코어 수 x 10 만큼의 스레드를 생성한다. |
+|                               | 3) Blocking I/O 작업을 효과적으로 처라히가 위한 방식이다. |
+|                               | - 실행시간이 긴 Blocking I/O 작업이 포함된 경우, 다른 Non-Blocking 처리에 영향을 주지 않도록 전용 스레드를 할당해서 Blocking I/O 작업을 처리하기 때문에 처리 시간을 효율적으로 사용할 수 있다.
+---------------------------------------------------------------------------------------------------------
+| Schedulers.parallel()                              |1) Non-Blocking I.O에 최적화되어 있는 Scheduler로서 CPU 코어 수만큼의 스레드를 생성한다.          |
+-------------------------------------------------
+| Schedulers.fromExecutorService()      |      1) 기존에 이미 사용하고 있는 ExecutorService가 있다면 이 ExecutorService로부터 Scheduler를 생성하는 방식이다. |
+-------------------------------------------
+| Schedulers.newXXX() | 1) single(), boundedElastic(), parallel()은 Reactor에서 제공하는 디폴트 Scheduler 인스턴스를 사용하는데, 필요하다면 newSingle(), newBoundedElastic(), newParallel() 메서드를 이용해서 새로운 Scheduler 인스턴스를 생성할 수 있다. |
+  	
+  	
 
 
 https://devfunny.tistory.com/915
