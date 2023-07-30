@@ -16,6 +16,37 @@ Reactor Sequence에서 사용되는 스레드를 관리해 주는 관리자 역�
 
 
 
+Netty 의 구조
+
+netty 의 핵심 컴포넌트로는 Channel, CallBack, Future, 이벤트와 핸들러, Event Loop와 PipeLine이 있습니다.
+
+
+Channel : 하나 이상의 입출력 작업을 수행할 수 있는 하드웨어 장치, 파일, 네트워크 소켓이나 프로그램 컴포넌트와 같은 Open된 Connection 을 의미합니다.
+
+CallBack : 다른 메서드로 자신에 대한 참조를 제공하는 메서드입니다. 이벤트를 처리할 때 Netty 내부적으로 콜백을 이용하는데, 이때 ChannelHandler 인터페이스를 통해 이벤트를 처리합니다.
+
+Future : 작업이 완료가 될 경우 애플리케이션에 알립니다. Future 객체는 비동기 작업의 결과를 담는 Plachloder의 역할을 합니다. 이때 ChannelFuture 인터페이스를 이용해 결과값을 활용합니다.
+
+Event와 Handler : Netty는 작업 상태의 변화를 알리기 위해 이벤트를 이용하고, 발생한 이벤트를 기준으로 Handler를 통해 트리거합니다.
+
+
+
+### Event Loop
+
+- 유저가 입출력을 요구할 경우의 흐름
+![](.2_웹플럭스_Reactor_images/be36faf4.png)
+
+
+
+### PipeLine
+
+- 이벤트 루프에서 이벤트를 받아 핸들러에 전달하는 역할
+![](.2_웹플럭스_Reactor_images/ba22a4e6.png)
+
+### Netty 핵심 플로우
+![](.2_웹플럭스_Reactor_images/7bf43167.png)
+
+
 ### 코어와 물리적인 스레드 관계
 
 https://badcandy.github.io/2019/01/14/concurrency-01/
